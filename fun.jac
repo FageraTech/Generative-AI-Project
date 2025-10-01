@@ -1,12 +1,3 @@
-"""A Treasure Hunt Adventure Game"""
-
-walker adventure_game {
-    has player_name;
-    has health = 100;
-    has inventory = [];
-    has moves = 0;
-}
-
 node room_node {
     has room_id;
     has description;
@@ -15,37 +6,42 @@ node room_node {
     has visited = false;
 }
 
-# Initialize the game world
+walker adventure_game {
+    has player_name;
+    has health = 100;
+    has inventory = [];
+    has moves = 0;
+}
+
 walker init_world {
-    has created_rooms = false;
-    
     with entry {
-        if not [::root --> room_node] {
-            spawn ::root --> room_node(
+        existing_rooms = [-[room_node]->];
+        if (existing_rooms.length == 0): {
+            spawn here ++> node::room_node(
                 room_id=1,
                 description="You are in a dark forest. Strange noises echo around you.",
                 connections={"north": 2, "east": 3},
                 items=["torch"]
             );
-            spawn ::root --> room_node(
+            spawn here ++> node::room_node(
                 room_id=2, 
                 description="You've reached an ancient temple entrance.",
                 connections={"south": 1, "east": 4},
                 items=["key"]
             );
-            spawn ::root --> room_node(
+            spawn here ++> node::room_node(
                 room_id=3,
                 description="A murky swamp. The air is thick with fog.",
                 connections={"west": 1, "north": 4},
                 items=["potion"]
             );
-            spawn ::root --> room_node(
+            spawn here ++> node::room_node(
                 room_id=4,
                 description="You stand before a massive dragon's lair!",
                 connections={"west": 2, "south": 3, "north": 5},
                 items=["gold coin"]
             );
-            spawn ::root --> room_node(
+            spawn here ++> node::room_node(
                 room_id=5,
                 description="The treasure chamber! A sparkling chest awaits.",
                 connections={"south": 4},
@@ -53,167 +49,171 @@ walker init_world {
             );
             std.log("Game world initialized with 5 rooms");
         }
-        take --> node::root; 
     }
 }
 
-# Main game walker
 walker game_controller {
-    can explore_room with room_node entry;
-    can handle_action;
-    can game_over;
+    has current_room;
+    has player;
     
     with entry {
-        print("🏴‍☠️ Welcome to the Treasure Hunt Adventure! 🏴‍☠️");
-        player_name = input("What is your name, adventurer? ");
+        std.out("🏴 Welcome to the Treasure Hunt Adventure! 🏴");
+        here.player_name = std.input("What is your name, adventurer? ");
         
-        # Create player walker
-        player = spawn here walker::adventure_game(player_name=player_name);
+        here.player = spawn here --> walker::adventure_game(
+            player_name=here.player_name
+        );
         
-        # Initialize world
-        spawn here walker::init_world;
+        spawn here --> walker::init_world;
         
-        # Start game in first room
-        start_room = [::root --> room_node(room_id=1)];
-        if start_room {
-            player.visit(start_room);
+        start_room = [-[room_node(room_id==1)]->];
+        if (start_room.length > 0): {
+            here.current_room = start_room[0];
+            here.player --> here.current_room;
         } else {
-            print("Error: Starting room not found!");
+            std.out("Error: Starting room not found!");
         }
     }
 }
 
-# Implement room exploration
-impl game_controller.explore_room {
-    here.visited = true;
-    visitor.moves += 1;
+impl walker::explore_room for game_controller {
+    with node::entry {
+        here.visited = true;
+        visitor.moves += 1;
 
-    print("\n" + "="*40);
-    print("📍 " + here.description);
-    print("Health: " + str(visitor.health) + " ❤️");
-    print("Moves: " + str(visitor.moves));
-    print("Inventory: " + str(visitor.inventory));
+        std.out("\n" + "="*40);
+        std.out("📍 " + here.description);
+        std.out("Health: " + visitor.health.str() + " ❤️");
+        std.out("Moves: " + visitor.moves.str());
+        std.out("Inventory: " + visitor.inventory.str());
 
-    if here.items.length > 0 {
-        print("You see: " + str(here.items));
+        if (here.items.length > 0): {
+            std.out("You see: " + here.items.str());
+        }
+
+        available_exits = here.connections.keys();
+        std.out("Exits: " + available_exits.str());
+
+        std.out("\nWhat would you like to do?");
+        std.out("Options: move [direction], take [item], look, inventory, quit");
+        action = std.input("> ").lower().split();
+        
+        here.handle_action(action, here);
     }
-
-    available_exits = here.connections.keys();
-    print("Exits: " + str(list(available_exits)));
-
-    print("\nWhat would you like to do?");
-    print("Options: move [direction], take [item], look, inventory, quit");
-    action = input("> ").lower().split();
-    
-    self.handle_action(action);
 }
 
-# Handle player actions
-impl game_controller.handle_action {
-    if action.length == 0 {
-        print("Please enter a command.");
-        visitor.visit(here);
-        return;
-    }
+walker handle_action {
+    with entry {
+        if (ctx.action.length == 0): {
+            std.out("Please enter a command.");
+            visitor --> here.current_room;
+            return;
+        }
 
-    if action[0] == "move" and action.length > 1 {
-        direction = action[1];
-        if direction in here.connections {
-            next_room_id = here.connections[direction];
-            next_room = [::root --> room_node(room_id=next_room_id)];
+        if (ctx.action[0] == "move" and ctx.action.length > 1): {
+            direction = ctx.action[1];
+            if (direction in here.connections): {
+                next_room_id = here.connections[direction];
+                next_room = [-[room_node(room_id==next_room_id)]->];
 
-            if next_room {
-                health_cost = std.rand.int(1, 5);
-                visitor.health -= health_cost;
+                if (next_room.length > 0): {
+                    health_cost = std.rand.int(1, 5);
+                    visitor.health -= health_cost;
 
-                if visitor.health <= 0 {
-                    self.game_over("exhaustion");
+                    if (visitor.health <= 0): {
+                        visitor.game_over("exhaustion");
+                        return;
+                    }
+
+                    std.out("You move " + direction + " (lost " + health_cost.str() + " health)");
+                    visitor --> next_room[0];
+                } else {
+                    std.out("Error: Room not found!");
+                    visitor --> here;
+                }
+            } else {
+                std.out("You can't go that way!");
+                visitor --> here;
+            }
+        }
+        elif (ctx.action[0] == "take" and ctx.action.length > 1): {
+            item_name = ctx.action[1];
+            if (item_name in here.items): {
+                index = here.items.index(item_name);
+                if (index >= 0): {
+                    here.items.remove(index);
+                }
+                visitor.inventory.append(item_name);
+                std.out("You took the " + item_name);
+
+                if (item_name == "treasure"): {
+                    visitor.game_over("win");
                     return;
                 }
 
-                print("You move " + direction + " (lost " + str(health_cost) + " health)");
-                visitor.visit(next_room);
+                if (item_name == "potion"): {
+                    visitor.health += 20;
+                    std.out("Potion restored 20 health!");
+                }
             } else {
-                print("Error: Room not found!");
-                visitor.visit(here);
+                std.out("There's no " + item_name + " here!");
             }
-        } else {
-            print("You can't go that way!");
-            visitor.visit(here);
+            visitor --> here;
         }
-    }
-    elif action[0] == "take" and action.length > 1 {
-        item_name = action[1];
-        if item_name in here.items {
-            here.items.remove(item_name);
-            visitor.inventory.append(item_name);
-            print("You took the " + item_name);
-
-            if item_name == "treasure" {
-                self.game_over("win");
-                return;
+        elif (ctx.action[0] == "look"): {
+            std.out("You look around carefully...");
+            if (!here.visited): {
+                if (std.rand.int(1, 4) == 1 and here.items.length == 0): {
+                    hidden_items = ["gold coin", "key", "map", "potion"];
+                    found_item = std.rand.choice(hidden_items);
+                    here.items.append(found_item);
+                    std.out("You found a hidden " + found_item + "!");
+                }
             }
-
-            if item_name == "potion" {
-                visitor.health += 20;
-                print("Potion restored 20 health!");
-            }
-        } else {
-            print("There's no " + item_name + " here!");
+            visitor --> here;
         }
-        visitor.visit(here);
-    }
-    elif action[0] == "look" {
-        print("You look around carefully...");
-        if not here.visited {
-            if std.rand.int(1, 4) == 1 and here.items.length == 0 {
-                hidden_items = ["gold coin", "key", "map", "potion"];
-                found_item = std.rand.choice(hidden_items);
-                here.items.append(found_item);
-                print("You found a hidden " + found_item + "!");
-            }
+        elif (ctx.action[0] == "inventory"): {
+            std.out("Your inventory: " + visitor.inventory.str());
+            visitor --> here;
         }
-        visitor.visit(here);
-    }
-    elif action[0] == "inventory" {
-        print("Your inventory: " + str(visitor.inventory));
-        visitor.visit(here);
-    }
-    elif action[0] == "quit" {
-        self.game_over("quit");
-    }
-    else {
-        print("I don't understand that command.");
-        visitor.visit(here);
+        elif (ctx.action[0] == "quit"): {
+            visitor.game_over("quit");
+        }
+        else {
+            std.out("I don't understand that command.");
+            visitor --> here;
+        }
     }
 }
 
-# Game over handler
-impl game_controller.game_over {
-    print("\n" + "="*40);
-    print("🎮 GAME OVER");
+walker game_over {
+    with entry {
+        std.out("\n" + "="*40);
+        std.out("🎮 GAME OVER");
 
-    if reason == "win" {
-        print("🏆 CONGRATULATIONS " + visitor.player_name + "!");
-        score = visitor.health * 10 + 100 - visitor.moves;
-        print("Final Score: " + str(score));
-    }
-    elif reason == "exhaustion" {
-        print("💀 You collapsed from exhaustion!");
-        print("The treasure remains hidden...");
-    }
-    elif reason == "quit" {
-        print("Thanks for playing!");
-    }
+        if (ctx.reason == "win"): {
+            std.out("🏆 CONGRATULATIONS " + visitor.player_name + "!");
+            score = visitor.health * 10 + 100 - visitor.moves;
+            std.out("Final Score: " + score.str());
+        }
+        elif (ctx.reason == "exhaustion"): {
+            std.out("💀 You collapsed from exhaustion!");
+            std.out("The treasure remains hidden...");
+        }
+        elif (ctx.reason == "quit"): {
+            std.out("Thanks for playing!");
+        }
 
-    print("Stats:");
-    print("- Health: " + str(visitor.health));
-    print("- Moves: " + str(visitor.moves));
-    print("- Items collected: " + str(visitor.inventory.length));
-    print("="*40);
+        std.out("Stats:");
+        std.out("- Health: " + visitor.health.str());
+        std.out("- Moves: " + visitor.moves.str());
+        std.out("- Items collected: " + visitor.inventory.length.str());
+        std.out("="*40);
+        
+        disconnect visitor;
+    }
 }
 
-# Start the game
 with entry {
-    spawn here walker::game_controller;
+    spawn here --> walker::game_controller;
 }
