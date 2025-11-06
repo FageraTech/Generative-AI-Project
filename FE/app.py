@@ -107,7 +107,7 @@ if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 
 with st.sidebar:
-    st.title("Session Management")
+    st.title("FageraTech Session Management")
     if st.button("Start New Session"):
         # Just reset the virtual session and chat history
         st.session_state.session_id = ""
