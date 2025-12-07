@@ -18,11 +18,11 @@ jac DocGenie {
         with entry {
             std.log("Assembling final documentation");
             
-            // Generate diagrams
+            #Generate diagrams
             class_diagram = diagram_generator:generate_class_diagram(code_graph);
             call_graph = diagram_generator:generate_function_call_graph(code_graph);
             
-            // Generate markdown sections
+            #Generate markdown sections
             documentation = generate_markdown_sections(
                 repo_url, 
                 readme_summary, 
@@ -32,7 +32,7 @@ jac DocGenie {
                 call_graph
             );
             
-            // Save documentation
+            # Save documentation
             save_documentation(repo_url, documentation);
             
             std.log("Documentation generated and saved successfully");
@@ -48,7 +48,8 @@ jac DocGenie {
             
             markdown = "# " + repo_name + " Documentation\n\n";
             
-            // Table of Contents
+            #Table of Contents
+
             markdown += "## Table of Contents\n";
             markdown += "- [Project Overview](#project-overview)\n";
             markdown += "- [Repository Structure](#repository-structure)\n";
@@ -58,30 +59,30 @@ jac DocGenie {
             markdown += "- [Architecture](#architecture)\n";
             markdown += "- [Code Analysis](#code-analysis)\n\n";
             
-            // Project Overview
+            #Project Overview
             markdown += "## Project Overview\n\n";
             markdown += readme_summary + "\n\n";
             markdown += "**Repository URL**: " + repo_url + "\n\n";
             
-            // Repository Structure
+            #Repository Structure
             markdown += "## Repository Structure\n\n";
             markdown += "```\n";
             markdown += generate_file_tree_markdown(file_tree);
             markdown += "```\n\n";
             
-            // Installation
+            # Installation
             markdown += "## Installation\n\n";
             markdown += generate_installation_section(file_tree);
             
-            // Usage
+            #Usage
             markdown += "## Usage\n\n";
             markdown += generate_usage_examples(code_graph);
             
-            // API Reference
+            # API Reference
             markdown += "## API Reference\n\n";
             markdown += generate_api_reference(code_graph);
             
-            // Architecture
+            # Architecture
             markdown += "## Architecture\n\n";
             markdown += "### Class Diagram\n\n";
             markdown += "```mermaid\n";
@@ -93,7 +94,7 @@ jac DocGenie {
             markdown += call_graph;
             markdown += "\n```\n\n";
             
-            // Code Analysis
+            # Code Analysis
             markdown += "## Code Analysis\n\n";
             markdown += generate_code_analysis_summary(code_graph);
         }
@@ -108,10 +109,10 @@ jac DocGenie {
             repo_name = repo_url.split('/').slice(-1)[0].replace('.git', '');
             filename = "./outputs/" + repo_name + "/docs.md";
             
-            // Create directory if it doesn't exist
+            #Create directory if it doesn't exist
             std.file.mkdir("./outputs/" + repo_name);
             
-            // Write documentation
+            # Write documentation
             std.file.write(filename, documentation);
             
             std.log("Documentation saved to: " + filename);
@@ -149,7 +150,7 @@ jac DocGenie {
         with entry {
             installation_section = "";
             
-            // Check for common installation files
+            # Check for common installation files
             if any(file.name == "requirements.txt" for file in file_tree.files) {
                 installation_section += "### Using pip\n\n";
                 installation_section += "```bash\npip install -r requirements.txt\n```\n\n";
@@ -178,19 +179,19 @@ jac DocGenie {
         with entry {
             api_reference = "";
             
-            // Group by file
+            # Group by file
             for file_path, file_data in code_graph.nodes {
                 if file_data.functions.length > 0 or file_data.classes.length > 0 {
                     api_reference += "### " + file_path + "\n\n";
                     
-                    // Classes
+                    #Classes
                     for cls in file_data.classes {
                         api_reference += "#### Class: " + cls.name + "\n\n";
                         if cls.docstring {
                             api_reference += cls.docstring + "\n\n";
                         }
                         
-                        // Methods
+                        # Methods
                         if cls.methods.length > 0 {
                             api_reference += "**Methods**:\n\n";
                             for method in cls.methods {
@@ -203,7 +204,7 @@ jac DocGenie {
                         }
                     }
                     
-                    // Functions
+                    #Functions
                     for func in file_data.functions {
                         api_reference += "#### Function: " + func.name + "\n\n";
                         api_reference += "```python\n" + func.signature + "\n```\n\n";

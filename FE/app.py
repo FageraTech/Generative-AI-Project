@@ -3,6 +3,20 @@ import requests
 import json
 import time
 
+# Load external CSS
+def load_css():
+    try:
+        with open("style.css") as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.warning("CSS file not found. Using default styling.")
+
+# Load CSS at the beginning
+load_css()
+
+
+
+
 st.set_page_config(
     page_title="FageraTech Codebase Genius",
     page_icon="📚",

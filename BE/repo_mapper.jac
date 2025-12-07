@@ -72,7 +72,7 @@ jac RepoMapper {
                 "main_directories": []
             };
             
-            // Analyze file types
+            
 
             for file in file_tree.files {
                 extension = file.extension;
